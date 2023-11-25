@@ -36,6 +36,12 @@ async function run() {
             res.send(result);
         })
 
+        app.post("/articles", async (req, res) => {
+            const article = req.body;
+            const result = await articleCollection.insertOne(article);
+            res.send(result);
+        })
+
 
 
         // Send a ping to confirm a successful connection
