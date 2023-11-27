@@ -27,6 +27,7 @@ async function run() {
         await client.connect();
 
         const articleCollection = client.db("newspaperDB").collection("articles");
+        const userCollection = client.db("newspaperDB").collection("users");
 
 
 
@@ -43,6 +44,17 @@ async function run() {
         })
 
 
+        // users collection - API 
+        app.get("/users", async (req, res) => {
+            const result = await userCollection.find().toArray();
+            res.send(result);
+        })
+
+        app.post("/users", async (req, res) => {
+            const user = req.body;
+            const result = await userCollection.insertOne(user);
+            res.send(result);
+        })
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
