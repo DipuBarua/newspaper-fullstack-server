@@ -24,10 +24,28 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
+
 
         const articleCollection = client.db("newspaperDB").collection("articles");
         const userCollection = client.db("newspaperDB").collection("users");
+        const publisherCollection = client.db("newspaperDB").collection("publishers");
+
+
+
+
+        // admin verify middleware
+        //TODO:use decoded(from jwt) instead of params/body to secure route.
+        // const verifyAdmin = async (res, req, next) => {
+        //     const email = req.body.email;
+        //     const query = { email: email };
+        //     const user = await userCollection.findOne(query);
+        //     if (!(user.role === "admin")) {
+        //         return res.status(403).send({ message: "forbidden access" });
+        //     }
+        //     next();
+        // }
+
 
 
 
@@ -37,9 +55,28 @@ async function run() {
             res.send(result);
         })
 
+        app.get("/articles/details/:id", async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await articleCollection.find(query).toArray();
+            res.send(result);
+        })
+
         app.post("/articles", async (req, res) => {
             const article = req.body;
             const result = await articleCollection.insertOne(article);
+            res.send(result);
+        })
+
+        app.patch("/articles/:id", async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updateArticle = {
+                $set: {
+                    status: "approved",
+                }
+            };
+            const result = await articleCollection.updateOne(filter, updateArticle);
             res.send(result);
         })
 
@@ -48,6 +85,19 @@ async function run() {
         app.get("/users", async (req, res) => {
             const result = await userCollection.find().toArray();
             res.send(result);
+        })
+
+        app.get("/users/admin/:email", async (req, res) => {
+            const email = req.params.email;
+            // TODO: jwt security ...
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            // console.log(user);//img loading problem
+            let admin = true;
+            if (user) {
+                admin = (user?.role === "admin");
+            }
+            res.send({ admin });
         })
 
         app.post("/users", async (req, res) => {
@@ -81,9 +131,22 @@ async function run() {
             res.send(result);
         })
 
+        // pubisher collection - API 
+        app.get("/publishers", async (req, res) => {
+            const pubishers = await publisherCollection.find().toArray();
+            res.send(pubishers);
+        })
+
+        app.post("/publishers", async (req, res) => {
+            const pubisher = req.body;
+            const result = await publisherCollection.insertOne(pubisher);
+            res.send(result);
+        })
+
+
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
