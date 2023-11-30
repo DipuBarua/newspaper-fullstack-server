@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const jwt = require('jsonwebtoken')
 require('dotenv').config();
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -33,6 +34,32 @@ async function run() {
 
 
 
+        app.post("/jwt", async (req, res) => {
+            const user = req.body;
+            console.log(user);
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" });
+            res.send({ token });
+            //Note:token has sent as an object
+        })
+
+        // jwt middleware 
+        const verifyToken = async (req, res, next) => {
+            console.log("verify this token:", req.headers.authorization);
+            if (!req.headers.authorization) {
+                return res.status(403).send({ message: "Forbidden access" });
+            }
+            const token = req.headers.authorization.split(" ")[1];
+            console.log('verified token:', token);
+            // jwt verification 
+            jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+                if (error) {
+                    return req.status(401).send({ message: "Unauthorize access" });
+                }
+                req.decoded = decoded;
+                next();
+            })
+        }
+
 
         // admin verify middleware
         //TODO:use decoded(from jwt) instead of params/body to secure route.
@@ -50,12 +77,20 @@ async function run() {
 
 
         // articles collection - API 
-        app.get("/articles", async (req, res) => {
+        app.get("/articles", verifyToken, async (req, res) => {
             const result = await articleCollection.find().toArray();
+            res.send(result);
+            console.log(req.headers);
+        })
+
+        app.get("/articles/approved", async (req, res) => {
+            const query = { status: "approved" };
+            const result = await articleCollection.find(query).toArray();
             res.send(result);
         })
 
         app.get("/articles/details/:id", async (req, res) => {
+            console.log(req.headers);
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await articleCollection.find(query).toArray();
@@ -68,7 +103,7 @@ async function run() {
             res.send(result);
         })
 
-        app.patch("/articles/:id", async (req, res) => {
+        app.patch("/articles/:id", verifyToken, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updateArticle = {
@@ -80,20 +115,30 @@ async function run() {
             res.send(result);
         })
 
+        app.delete("/articles/:id", verifyToken, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await articleCollection.deleteOne(query);
+            res.send(result);
+        })
+
 
         // users collection - API 
-        app.get("/users", async (req, res) => {
+        app.get("/users", verifyToken, async (req, res) => {
             const result = await userCollection.find().toArray();
             res.send(result);
         })
 
-        app.get("/users/admin/:email", async (req, res) => {
+        app.get("/users/admin/:email", verifyToken, async (req, res) => {
             const email = req.params.email;
-            // TODO: jwt security ...
+            //Highly Recommended: At first need jwt security >>> Should not write admin creation API code without secret token(jwt)*
+            if (email !== req.decoded.email) {
+                return res.status(401).send({ message: "Unauthorized access" });
+            }
             const query = { email: email };
             const user = await userCollection.findOne(query);
             // console.log(user);//img loading problem
-            let admin = true;
+            let admin = false;
             if (user) {
                 admin = (user?.role === "admin");
             }
@@ -112,7 +157,7 @@ async function run() {
             res.send(result);
         })
 
-        app.patch("/users/:id", async (req, res) => {
+        app.patch("/users/:id", verifyToken, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updateUser = {
@@ -124,20 +169,20 @@ async function run() {
             res.send(result);
         })
 
-        app.delete("/users/:id", async (req, res) => {
+        app.delete("/users/:id", verifyToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await userCollection.deleteOne(query);
             res.send(result);
         })
 
-        // pubisher collection - API 
+        // publishers collection - API 
         app.get("/publishers", async (req, res) => {
-            const pubishers = await publisherCollection.find().toArray();
-            res.send(pubishers);
+            const publishers = await publisherCollection.find().toArray();
+            res.send(publishers);
         })
 
-        app.post("/publishers", async (req, res) => {
+        app.post("/publishers", verifyToken, async (req, res) => {
             const pubisher = req.body;
             const result = await publisherCollection.insertOne(pubisher);
             res.send(result);
