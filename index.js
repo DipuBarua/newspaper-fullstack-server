@@ -3,8 +3,8 @@ const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken')
 require('dotenv').config();
-const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const port = process.env.PORT || 5000;
 
 // middleware 
 app.use(cors());
@@ -89,6 +89,12 @@ async function run() {
             res.send(result);
         })
 
+        app.get("/articles/premium", async (req, res) => {
+            const query = { isPremium: "premium" };
+            const result = await articleCollection.find(query).toArray();
+            res.send(result);
+        })
+
         app.get("/articles/details/:id", async (req, res) => {
             console.log(req.headers);
             const id = req.params.id;
@@ -109,6 +115,18 @@ async function run() {
             const updateArticle = {
                 $set: {
                     status: "approved",
+                }
+            };
+            const result = await articleCollection.updateOne(filter, updateArticle);
+            res.send(result);
+        })
+
+        app.patch("/articles/premium/:id", verifyToken, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updateArticle = {
+                $set: {
+                    isPremium: "premium",
                 }
             };
             const result = await articleCollection.updateOne(filter, updateArticle);
